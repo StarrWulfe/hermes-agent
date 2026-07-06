@@ -284,12 +284,20 @@ def main():
     # Live-apply skins Hermes activates mid-conversation.
     server._ensure_skin_watcher()
 
-    # Warm the /model picker's provider-models cache in this idle window (fire-and-forget).
+    # Start the appearance watcher so an 'auto' skin follows OS light/dark changes
     try:
-        from hermes_cli.model_switch_providers import prewarm_picker_cache_async
-        prewarm_picker_cache_async()
+        from hermes_cli.skin_engine import start_appearance_watcher
+
+        def _on_appearance_change(new_skin_name: str) -> None:
+            write_json({
+                "jsonrpc": "2.0",
+                "method": "event",
+                "params": {"type": "skin.changed", "payload": resolve_skin()},
+            })
+
+        start_appearance_watcher(_on_appearance_change)
     except Exception:
-        logger.debug("picker cache prewarm (tui) failed to start", exc_info=True)
+        pass  # Appearance watcher is optional
 
     while True:
         raw = sys.stdin.readline()
