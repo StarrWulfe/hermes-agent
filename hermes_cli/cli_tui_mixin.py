@@ -1847,6 +1847,7 @@ class CLITuiMixin:
         self._config_sig: tuple | None = file_signature(_cfg_path.stat()) if _cfg_path.exists() else None
         self._config_mcp_servers: dict = self.config.get("mcp_servers") or {}
         self._last_config_check: float = 0.0  # monotonic time of last check
+        self._last_skin_name: str | None = None  # last known display.skin value
 
         # Modal overlay states: each is a dict (with a response_queue) while active, else None.
         # The prompt_toolkit UI switches to the matching selection/input mode.

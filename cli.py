@@ -3468,6 +3468,7 @@ class HermesCLI(CLIProcessNotificationsMixin, CLIAgentSetupMixin, CLICommandsMix
     def _tui_idle_tick(self):
         """Idle housekeeping between inputs (agent not running)."""
         self._check_config_mcp_changes()  # auto-reload MCP on mcp_servers change
+        self._check_skin_reload()         # auto-reload skin on display.skin change
         # Termios drift heal first: a drifted tty makes the CLI look dead while the loop is healthy.
         for step in (
             self._check_termios_drift,

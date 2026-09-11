@@ -864,6 +864,57 @@ class CLIInfoMixin:
         print("🔄 MCP server config changed — reloading connections...")
         threading.Thread(target=self._reload_mcp, daemon=True).start()
 
+    def _check_skin_reload(self) -> None:
+        """Detect display.skin changes in config.yaml and hot-reload the skin.
+
+        Called from process_loop alongside _check_config_mcp_changes.
+        When a change is detected, calls set_active_skin() so the new skin
+        takes effect immediately — no CLI restart needed.
+        """
+        now = time.monotonic()
+        if now - self._last_config_check < CONFIG_WATCH_INTERVAL:
+            return
+        self._last_config_check = now
+
+        from hermes_cli.config import get_config_path as _get_config_path
+        cfg_path = _get_config_path()
+        if not cfg_path.exists():
+            return
+
+        try:
+            mtime = cfg_path.stat().st_mtime
+        except OSError:
+            return
+
+        if mtime == self._config_mtime:
+            return  # File unchanged — fast path
+        self._config_mtime = mtime
+
+        try:
+            import yaml as _yaml
+            with open(cfg_path, encoding="utf-8") as _f:
+                cfg = _yaml.safe_load(_f) or {}
+            display = cfg.get("display") or {}
+            new_skin = display.get("skin", "default")
+        except Exception:
+            return
+
+        if new_skin == self._last_skin_name:
+            return  # Skin value unchanged (file rebuild from cron)
+        self._last_skin_name = new_skin
+
+        try:
+            from hermes_cli.skin_engine import set_active_skin, get_active_skin_name
+            prev = get_active_skin_name()
+            if prev != new_skin:
+                # Lazy import: cli._cprint is a module-level helper, available
+                # whenever this mixin is loaded (HermesCLI inherits its module).
+                from cli import _cprint, _DIM, _RST
+                _cprint(f"\n  {_DIM}♻️  Skin changed: {prev} → {new_skin} (config.yaml){_RST}")
+                set_active_skin(new_skin)
+        except Exception:
+            pass
+
     def _confirm_and_reload_mcp(self, cmd_original: str = "") -> None:
         """Interactive /reload-mcp — confirm (Approve Once / Always Approve / Cancel, gated by
         ``approvals.mcp_reload_confirm``, default on), then reload. The config watcher's
